@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Movies</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css">
+    <link rel='stylesheet prefetch' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css'>
+    <style>
+       body {   
+            font-size: 12pt;
+            font-family: Verdana;
+            width: 960px; 
+            margin: 0 auto;
+        }
+        table {
+            width: 65%;
+        }
+        table td {
+            text-align: center;
+        }
+        #wrapper {
+            margin: 55px 55px 55px 55px;
+        }
+        .heading {
+            width: 150px;
+            display: inline-block;
+        }
+        .rowhead {
+            background-color: gray;
+            color: white;
+            font-weight: bold;
+        }
+        h2 {
+            font-size:46px;
+            font-weight:400;
+            font-family: verdana;
+            text-align: center
+        }
+    </style>
+    <script src="../angular.js"></script>
+    <script src="../jquery/jquery.js"></script>
+    <script src="../jquery/jquery-ui.js"></script>
+    <link href="../jquery/jquery-ui.css" rel="stylesheet" />
+    <script>
+        var module = angular.module("movies", []);
+        module.controller("ContactsController",
+            function ($scope, $http, $log) {
+                // $log.info("Making ajax call");
+                $scope.movie = { genre: 'a' };
+                $scope.submitted = false;
+                
+                $scope.disableButtons = function(){
+                    $("#load").css("visibility","visible");
+                        $("#addMovieButton").attr("disabled", "disabled");
+                        $(".editMovieButton").attr("disabled", "disabled");
+                        $(".deleteMovieButton").attr("disabled", "disabled");
+                }
+                
+                $scope.enableButtons = function(){
+                    $("#load").css("visibility","hidden");
+                    $("#addMovieButton").removeAttr("disabled");
+                    $(".editMovieButton").removeAttr("disabled");
+                    $(".deleteMovieButton").removeAttr("disabled");
+                }
+                $scope.addMovie = function (movie) {
+                   // alert("test " + movie.id);
+                    $log.info("add");
+                    if ($scope.movieForm.$invalid) {
+                        $scope.submitted = true;
+                        $log.info("invalid form");
+                        return;
+                    }
+                    
+                    $log.info(JSON.stringify(movie));
+                    if(movie.id === undefined){
+                        // make post request to add movie
+                        $scope.disableButtons();
+                        var config = {
+                            method: 'post',
+                            url: 'http://localhost:8080/postMovie/',
+                            dataType: 'JSON',
+                            data: JSON.stringify(movie)
+                        };
+
+                        $http(config).
+                              success(function (data, status, headers, config) {
+                                  $scope.enableButtons();
+                                  $log.info('Data here : ' + data);
+                                  $scope.getMovies();
+                                  $scope.submitted = false;
+                                  $scope.movie = { genre: 'a' };
+                              }).
+                               error(function (data, status, headers, config) {
+                                   $log.info('Error --> ' + data);
+                                   $scope.error = status;
+                               });
+                    }else{
+                        // make PUT request to modify movie
+                        $scope.disableButtons();
+                        var config = {
+                            method: 'put',
+                            url: 'http://localhost:8080/putMovie/',
+                            dataType: 'JSON',
+                            data: JSON.stringify(movie)
+                        };
+
+                        $http(config).
+                              success(function (data, status, headers, config) {
+                                  $scope.enableButtons();
+                                  $log.info('Data here : ' + data);
+                                  $scope.getMovies();
+                                  $scope.submitted = false;
+                                  $scope.movie = { genre: 'a' };
+                              }).
+                               error(function (data, status, headers, config) {
+                                   $log.info('Error --> ' + data);
+                                   $scope.error = status;
+                               });
+                    }
+                }
+
+                $scope.getMovies = function () {
+                     $scope.disableButtons();
+                    var config = {
+                        method: 'get',
+                        url: 'http://localhost:8080/getMovies/'
+                    };
+
+                    $http(config).
+                          success(function (data, status, headers, config) {
+                               $scope.enableButtons();
+                              $log.info('Data : ' + data);
+                              $scope.movies = data;
+                          }).
+                           error(function (data, status, headers, config) {
+                               $log.info('Error --> ' + data);
+                               $scope.error = status;
+                           });
+                }
+
+                $scope.delete = function (name) {
+                     $scope.disableButtons();
+                    $("#dialog").html("");
+                    $("#dialog").dialog("close");
+
+                    $http.delete("http://localhost:8080/deleteMovie/?id=" + name).
+                          success(function (data, status, headers, config) {
+                              $scope.enableButtons();
+                              $scope.getMovies();
+                          })
+                }
+
+                $scope.deleteMovie = function (id,name) {
+                    $("#dialog").html("Do you want to delete movie [" + name + "] ??");
+                    $("#dialog").dialog({
+                        buttons: [{ text: 'Yes', click: function () { $scope.delete(id); } },
+                                  { text: 'No', click: function () { $(this).dialog("close"); } }]
+                    });
+                }
+                
+                $scope.editMovie = function (id,name,director,genre,budget) {
+                    $scope.movie.id = id;
+                    $scope.movie.movieName = name;
+                    $scope.movie.directorName = director;
+                    $scope.movie.genre = genre;
+                    $scope.movie.budget = Number(budget);
+                }
+                $scope.getMovies();
+            });
+    </script>
+</head>
+<body ng-app="movies" >
+    <h2>Movie Information</h2>
+    <div ng-controller="ContactsController" id="wrapper">
+        <div id="dialog" title="Delete Confirmation">
+        </div>
+        <div id="dialogFeedback" title="Deletion Status">
+        </div>
+        <div>
+        <form name="movieForm" novalidate class="form">
+            <input name="id" ng-model="movie.id" hidden="hidden"/>
+            
+            <br/>
+            <!--<span class="heading">Movie name </span>-->
+            <input name="name" class="form-control" ng-model="movie.movieName" required placeholder="Movie Name"/>
+            <span ng-show="submitted">
+                <span ng-if="movieForm.name.$invalid">Movie Name Required</span>
+            </span>
+            
+            <br/>
+            <!--<span class="heading">Movie Director</span>-->
+            <input name="director" class="form-control" ng-model="movie.directorName" required="required" placeholder="Movie Director" />
+            <span ng-show="submitted">
+                <span ng-if="movieForm.director.$error.required">Director Name Required</span>
+            </span>
+
+            <br/>
+            <!--<span class="heading">Movie Genre</span>-->
+            <input type="radio"  value="a" ng-model="movie.genre" />Action
+            <input type="radio"  value="h" ng-model="movie.genre" />Horror
+            
+            <br/>
+            <span></span>
+            
+            <br/>
+            <!--<span class="heading">Movie Budget</span>-->
+            <input type="number" name="budget" class="form-control" ng-model="movie.budget" required="required" placeholder="Movie Budget" />
+            <span ng-show="submitted">
+                <span ng-if="movieForm.budget.$error.required">Budget Required</span>
+            </span>
+            
+            <br/>
+            <input type="submit" id="addMovieButton" class="btn btn-success" ng-click="addMovie(movie)" value="submit" />
+            
+            <br/>
+            <img id="load" src="../images/load.gif" style="visibility:hidden"/>
+        </form>
+        <br/>
+        <table class="table">
+            <tr class="rowhead">
+                <th class="text-center">Movie Name</th>
+                <th class="text-center">Director</th>
+                <th class="text-center">Genre</th>
+                <th class="text-center">Budget</th>
+                <th class="text-center"></th>
+            </tr>
+            <tr ng-repeat="movie in movies | orderBy : 'Name'">
+                <td>
+                    {{ movie.movieName}}
+                </td>
+                <td>
+                    {{ movie.directorName}}
+                </td>
+                <td>
+
+                    {{ movie.genre == 'a' ? 'Action' : 'Horror' }}
+                </td>
+                <td>
+                    {{ movie.budget}}
+                </td>
+                <td>
+                    <button  class="btn btn-warning editMovieButton" ng-click="editMovie(movie.id,movie.movieName,movie.directorName,movie.genre,movie.budget)">Edit</button>
+                    <button  class="btn btn-danger deleteMovieButton" ng-click="deleteMovie(movie.id,movie.movieName)">Delete</button>
+                </td>
+            </tr>
+        </table>
+        </div>
+    </div>
+</body>
+</html>
